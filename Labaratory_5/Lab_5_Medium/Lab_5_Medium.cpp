@@ -1,61 +1,51 @@
-﻿#include <iostream>
-#include <iomanip>
-#include <cmath>
+#include <iostream>  // Библиотека для ввода и вывода
+#include <iomanip>   // Библиотека для оформления таблицы
+#include <cmath>     // Библиотека для функции sin()
 
 using namespace std;
 
 int main() {
+
+    // Объявляем переменные:
+    // a - начало интервала
+    // b - конец интервала
+    // h - шаг изменения x
     double a, b, h;
 
-    // Вводим начало и конец интервала, а также шаг
+    // Просим пользователя ввести начало, конец интервала и шаг
     cout << "Enter a, b and h: ";
+    cin >> a >> b >> h;
 
-    // Проверяем корректность ввода
-    if (!(cin >> a >> b >> h)) {
-        cout << "Error: Please enter valid numbers." << endl;
-        return 1;
-    }
-
-    // Проверяем границы интервала и значение шага
-    if (!isfinite(a) || !isfinite(b) || !isfinite(h)
-        || a > b || h <= 0) {
+    // Проверяем правильность введённых данных
+    if (a > b || h <= 0) {
         cout << "Error: Invalid interval or step." << endl;
         return 1;
     }
 
-    // Задаём погрешность для вещественных чисел
-    const double EPS = 1e-9;
+    // Переменная для хранения суммы квадратов значений функции
+    double sumSquares = 0;
 
-    // Задаём максимальное количество строк таблицы
-    const int MAX_ROWS = 100000;
+    // Переменные для хранения минимального и максимального значений
+    double minY, maxY;
 
-    // Инициализируем сумму квадратов и счётчик строк
-    double sumSquares = 0.0;
+    // Счётчик количества вычисленных значений
     int count = 0;
 
-    // Инициализируем переменные для минимума и максимума
-    double minY = 0.0;
-    double maxY = 0.0;
-
-    // Выводим название функции и заголовок таблицы
+    // Выводим название функции
     cout << "\nFunction: y = x * sin(x)\n";
 
+    // Выводим заголовок таблицы
     cout << left
-        << setw(15) << "X"
-        << setw(15) << "Y"
-        << setw(15) << "Y^2"
-        << endl;
+         << setw(15) << "X"
+         << setw(15) << "Y"
+         << setw(15) << "Y^2"
+         << endl;
 
+    // Выводим разделительную линию
     cout << "---------------------------------------------" << endl;
 
-    // Перебираем значения x на заданном интервале
-    for (double x = a; x <= b + EPS; x += h) {
-
-        // Проверяем, что текущее значение x конечно
-        if (!isfinite(x)) {
-            cout << "Error: Calculation overflow." << endl;
-            return 1;
-        }
+    // Перебираем значения x от a до b с шагом h
+    for (double x = a; x <= b; x += h) {
 
         // Вычисляем значение функции y = x * sin(x)
         double y = x * sin(x);
@@ -63,63 +53,45 @@ int main() {
         // Вычисляем квадрат значения функции
         double ySquared = y * y;
 
-        // Проверяем корректность результатов вычислений
-        if (!isfinite(y) || !isfinite(ySquared)) {
-            cout << "Error: Calculation overflow." << endl;
-            return 1;
-        }
-
-        // Добавляем квадрат значения функции к общей сумме
+        // Добавляем квадрат к общей сумме
         sumSquares += ySquared;
 
-        // Для первой строки задаём начальные минимум и максимум
+        // Для первого значения устанавливаем минимум и максимум
         if (count == 0) {
             minY = y;
             maxY = y;
         }
         else {
-            // Обновляем минимальное значение функции
+            // Проверяем, является ли текущее значение меньше минимума
             if (y < minY) {
                 minY = y;
             }
 
-            // Обновляем максимальное значение функции
+            // Проверяем, является ли текущее значение больше максимума
             if (y > maxY) {
                 maxY = y;
             }
         }
 
-        // Выводим x, y и квадрат y в таблицу
+        // Выводим значения x, y и y^2 в таблицу
         cout << fixed << setprecision(6)
-            << left
-            << setw(15) << x
-            << setw(15) << y
-            << setw(15) << ySquared
-            << endl;
+             << left
+             << setw(15) << x
+             << setw(15) << y
+             << setw(15) << ySquared
+             << endl;
 
-        // Увеличиваем количество обработанных значений
+        // Увеличиваем счётчик вычисленных значений
         count++;
-
-        // Останавливаем программу, если строк слишком много
-        if (count >= MAX_ROWS) {
-            cout << "Error: Too many iterations." << endl;
-            return 1;
-        }
     }
 
-    // Проверяем, что были вычислены значения функции
-    if (count == 0) {
-        cout << "No values were calculated." << endl;
-        return 1;
-    }
-
-    // Выводим сумму квадратов, минимум и максимум
+    // Выводим итоговые результаты вычислений
     cout << "\nSum of squares: " << sumSquares << endl;
     cout << "Minimum value: " << minY << endl;
     cout << "Maximum value: " << maxY << endl;
     cout << "Number of values: " << count << endl;
 
-    // Сообщаем об успешном завершении вычислений
+    // Сообщаем об успешном завершении программы
     cout << "\nCalculation completed successfully!" << endl;
 
     return 0;
