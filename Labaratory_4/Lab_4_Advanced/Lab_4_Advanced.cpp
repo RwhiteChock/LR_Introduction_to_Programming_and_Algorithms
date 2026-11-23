@@ -1,562 +1,377 @@
-﻿#include <iostream>
-#include <iomanip>
-#include <limits>
-#include <string>
-#include <vector>
 
-// ============================================================
-// ЛАБОРАТОРНАЯ РАБОТА № 4
-// Повышенный уровень, вариант № 11.
-// Магазин с категориями товаров, корзиной и скидками.
-//
-// Используются:
-// 1. Вложенные операторы switch.
-// 2. Проверка корректности пользовательского ввода.
-// 3. Очистка потока при ошибках через cin.clear() и cin.ignore().
-// 4. Повторный запрос при некорректном вводе.
-// 5. Проверка количества товаров и стоимости заказа.
-// 6. Расчёт скидки и формирование чека.
-// ============================================================
+#include <iostream>  // Для ввода и вывода данных
+#include <iomanip>   // Для красивого вывода цен
+#include <limits>    // Для очистки потока ввода
+#include <string>    // Для работы с названиями товаров
+#include <vector>    // Для хранения товаров в корзине
 
-// Структура описывает один товар в корзине.
+using namespace std;
+
+// Создаём структуру для хранения информации об одном товаре.
+// У каждого товара есть название, цена и количество.
 struct CartItem
 {
-    std::string name; // Название товара.
-    double price;     // Цена одной единицы товара.
-    int quantity;     // Количество единиц товара.
+    string name;
+    double price;
+    int quantity;
 };
 
-// ------------------------------------------------------------
-// Функция безопасного ввода целого числа.
-//
-// Если пользователь вводит буквы вместо числа, программа
-// очищает состояние потока, удаляет ошибочные символы
-// и повторяет запрос.
-// ------------------------------------------------------------
-int readInt(const std::string& prompt)
+// Функция для ввода целого числа.
+// Если пользователь введёт буквы вместо числа,
+// программа очистит ошибку и попросит ввести число ещё раз.
+int readInt()
 {
-    int value;
+    int number;
 
-    while (true)
+    // Цикл повторяется, пока пользователь не введёт целое число.
+    while (!(cin >> number))
     {
-        std::cout << prompt;
+        // Сбрасываем ошибку ввода.
+        cin.clear();
 
-        if (std::cin >> value)
-        {
-            return value;
-        }
+        // Удаляем неправильные символы из строки ввода.
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
-        // Сбрасываем состояние ошибки стандартного потока.
-        std::cin.clear();
-
-        // Удаляем некорректные данные из буфера ввода.
-        std::cin.ignore(
-            std::numeric_limits<std::streamsize>::max(), '\n'
-        );
-
-        std::cout
-            << "Invalid input. Please enter an integer.\n";
+        cout << "Invalid input! Enter a number: ";
     }
+
+    return number;
 }
 
-// ------------------------------------------------------------
 // Функция добавления товара в корзину.
-//
-// Если товар уже присутствует в корзине, увеличиваем его
-// количество, чтобы не создавать лишние позиции в чеке.
-// ------------------------------------------------------------
-void addToCart(
-    std::vector<CartItem>& cart,
-    const std::string& name,
-    double price,
-    int quantity)
+// Передаём название, цену и количество товара.
+void addToCart(vector<CartItem>& cart, string name,
+               double price, int quantity)
 {
-    // Защищаем корзину от некорректных значений.
-    if (quantity <= 0 || price < 0.0)
-    {
-        std::cout << "Error: invalid product quantity or price.\n";
-        return;
-    }
+    // Добавляем новый товар в конец корзины.
+    cart.push_back({name, price, quantity});
 
-    // Проверяем, есть ли такой товар в корзине.
-    for (CartItem& item : cart)
-    {
-        if (item.name == name && item.price == price)
-        {
-            // Проверяем переполнение при сложении количеств.
-            if (quantity > std::numeric_limits<int>::max()
-                - item.quantity)
-            {
-                std::cout
-                    << "Error: product quantity limit exceeded.\n";
-                return;
-            }
-
-            // Увеличиваем количество существующей позиции.
-            item.quantity += quantity;
-
-            std::cout << "Product quantity updated: "
-                << item.name << ".\n";
-            return;
-        }
-    }
-
-    // Если товар ещё не добавлялся, создаём новую позицию.
-    cart.push_back({ name, price, quantity });
-
-    std::cout << "Product added to cart: " << name << ".\n";
+    cout << "Product added to cart!" << endl;
 }
 
-// ------------------------------------------------------------
-// Функция выбора количества товара.
-//
-// Количество должно быть положительным целым числом.
-// Ноль и отрицательные значения не принимаются.
-// ------------------------------------------------------------
+// Функция для ввода количества товара.
+// Количество должно быть положительным числом.
 int readQuantity()
 {
-    while (true)
-    {
-        int quantity = readInt("Enter quantity (1 or more): ");
+    int quantity;
 
-        if (quantity > 0)
+    // Повторяем запрос, если введено неправильное количество.
+    do
+    {
+        cout << "Enter quantity: ";
+        quantity = readInt();
+
+        if (quantity <= 0)
         {
-            return quantity;
+            cout << "Quantity must be positive!" << endl;
         }
 
-        std::cout
-            << "Invalid quantity. Please enter a positive integer.\n";
-    }
+    } while (quantity <= 0);
+
+    return quantity;
 }
 
-// ------------------------------------------------------------
-// Функция вывода меню конкретной категории.
-//
-// Внутри каждого пункта категории используется вложенный
-// switch для выбора конкретного товара.
-// ------------------------------------------------------------
-void selectProduct(
-    int category,
-    std::vector<CartItem>& cart)
+// Функция выбора конкретного товара.
+// category показывает, какую категорию выбрал пользователь.
+// cart — корзина, куда добавляются выбранные товары.
+void selectProduct(int category, vector<CartItem>& cart)
 {
-    int productChoice;
+    int choice;
+    int quantity;
 
-    // Внешний switch определяет категорию товаров.
+    // Первый switch выбирает категорию товаров.
     switch (category)
     {
     case 1:
-    {
-        // Категория 1: салаты.
-        std::cout << "\n--- SALADS ---\n";
-        std::cout << "1. Caesar Salad - $8.50\n";
-        std::cout << "2. Greek Salad  - $7.00\n";
-        std::cout << "0. Return to main menu\n";
+        // Категория салатов.
+        cout << "\n--- SALADS ---\n";
+        cout << "1. Caesar Salad - $8.50\n";
+        cout << "2. Greek Salad - $7.00\n";
+        cout << "0. Back\n";
 
-        productChoice = readInt("Choose a salad: ");
+        cin >> choice;
 
-        // Вложенный switch выбирает конкретный салат.
-        switch (productChoice)
+        // Второй switch выбирает конкретный салат.
+        switch (choice)
         {
         case 1:
-        {
-            // Добавляем салат «Цезарь».
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Caesar Salad", 8.50, quantity
-            );
+            // Если выбран салат Цезарь,
+            // запрашиваем количество и добавляем его в корзину.
+            quantity = readQuantity();
+            addToCart(cart, "Caesar Salad", 8.50, quantity);
             break;
-        }
 
         case 2:
-        {
-            // Добавляем греческий салат.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Greek Salad", 7.00, quantity
-            );
+            // Если выбран греческий салат,
+            // также запрашиваем количество.
+            quantity = readQuantity();
+            addToCart(cart, "Greek Salad", 7.00, quantity);
             break;
-        }
 
         case 0:
-            // Возвращаемся к главному меню магазина.
-            std::cout << "Returning to main menu.\n";
+            // Возвращаемся в главное меню.
             break;
 
         default:
-            // Обрабатываем неправильный номер блюда.
-            std::cout << "Invalid salad selection.\n";
-            break;
+            // Если введён неправильный номер.
+            cout << "Invalid choice!" << endl;
         }
-
         break;
-    }
 
     case 2:
-    {
-        // Категория 2: горячие блюда.
-        std::cout << "\n--- HOT MEALS ---\n";
-        std::cout << "1. Chicken Steak - $12.00\n";
-        std::cout << "2. Pasta         - $9.50\n";
-        std::cout << "0. Return to main menu\n";
+        // Категория горячих блюд.
+        cout << "\n--- HOT MEALS ---\n";
+        cout << "1. Chicken Steak - $12.00\n";
+        cout << "2. Pasta - $9.50\n";
+        cout << "0. Back\n";
 
-        productChoice = readInt("Choose a hot meal: ");
+        cin >> choice;
 
-        // Вложенный switch обрабатывает выбор блюда.
-        switch (productChoice)
+        // Выбираем конкретное горячее блюдо.
+        switch (choice)
         {
         case 1:
-        {
-            // Добавляем куриный стейк.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Chicken Steak", 12.00, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Chicken Steak", 12.00, quantity);
             break;
-        }
 
         case 2:
-        {
-            // Добавляем пасту.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Pasta", 9.50, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Pasta", 9.50, quantity);
             break;
-        }
 
         case 0:
-            // Возврат к главному меню.
-            std::cout << "Returning to main menu.\n";
             break;
 
         default:
-            // Неверный номер горячего блюда.
-            std::cout << "Invalid hot meal selection.\n";
-            break;
+            cout << "Invalid choice!" << endl;
         }
-
         break;
-    }
 
     case 3:
-    {
-        // Категория 3: напитки.
-        std::cout << "\n--- DRINKS ---\n";
-        std::cout << "1. Water       - $1.50\n";
-        std::cout << "2. Orange Juice - $3.00\n";
-        std::cout << "0. Return to main menu\n";
+        // Категория напитков.
+        cout << "\n--- DRINKS ---\n";
+        cout << "1. Water - $1.50\n";
+        cout << "2. Orange Juice - $3.00\n";
+        cout << "0. Back\n";
 
-        productChoice = readInt("Choose a drink: ");
+        cin >> choice;
 
-        // Вложенный switch выбирает напиток.
-        switch (productChoice)
+        // Выбираем конкретный напиток.
+        switch (choice)
         {
         case 1:
-        {
-            // Добавляем воду.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Water", 1.50, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Water", 1.50, quantity);
             break;
-        }
 
         case 2:
-        {
-            // Добавляем апельсиновый сок.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Orange Juice", 3.00, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Orange Juice", 3.00, quantity);
             break;
-        }
 
         case 0:
-            // Возвращаемся к главному меню.
-            std::cout << "Returning to main menu.\n";
             break;
 
         default:
-            // Обрабатываем неверный выбор напитка.
-            std::cout << "Invalid drink selection.\n";
-            break;
+            cout << "Invalid choice!" << endl;
         }
-
         break;
-    }
 
     case 4:
-    {
-        // Категория 4: десерты.
-        std::cout << "\n--- DESSERTS ---\n";
-        std::cout << "1. Cheesecake - $5.00\n";
-        std::cout << "2. Ice Cream  - $3.50\n";
-        std::cout << "0. Return to main menu\n";
+        // Категория десертов.
+        cout << "\n--- DESSERTS ---\n";
+        cout << "1. Cheesecake - $5.00\n";
+        cout << "2. Ice Cream - $3.50\n";
+        cout << "0. Back\n";
 
-        productChoice = readInt("Choose a dessert: ");
+        cin >> choice;
 
-        // Вложенный switch выбирает десерт.
-        switch (productChoice)
+        // Выбираем конкретный десерт.
+        switch (choice)
         {
         case 1:
-        {
-            // Добавляем чизкейк.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Cheesecake", 5.00, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Cheesecake", 5.00, quantity);
             break;
-        }
 
         case 2:
-        {
-            // Добавляем мороженое.
-            int quantity = readQuantity();
-
-            addToCart(
-                cart, "Ice Cream", 3.50, quantity
-            );
+            quantity = readQuantity();
+            addToCart(cart, "Ice Cream", 3.50, quantity);
             break;
-        }
 
         case 0:
-            // Возвращаемся к главному меню.
-            std::cout << "Returning to main menu.\n";
             break;
 
         default:
-            // Обрабатываем неправильный номер десерта.
-            std::cout << "Invalid dessert selection.\n";
-            break;
+            cout << "Invalid choice!" << endl;
         }
-
         break;
-    }
 
     default:
-        // Обработка некорректного номера категории.
-        std::cout << "Invalid category selection.\n";
-        break;
+        cout << "Invalid category!" << endl;
     }
 }
 
-// ------------------------------------------------------------
-// Функция просмотра текущей корзины.
-//
-// Выводит названия товаров, количество, цену за единицу
-// и стоимость каждой позиции.
-// ------------------------------------------------------------
-void showCart(const std::vector<CartItem>& cart)
+// Функция просмотра корзины.
+// Показывает все товары, их количество и стоимость.
+void showCart(const vector<CartItem>& cart)
 {
-    std::cout << "\n========== YOUR CART ==========\n";
+    double total = 0;
 
+    cout << "\n========== YOUR CART ==========\n";
+
+    // Проверяем, есть ли товары в корзине.
     if (cart.empty())
     {
-        std::cout << "Your cart is empty.\n";
+        cout << "Your cart is empty!" << endl;
         return;
     }
 
-    double total = 0.0;
-
-    // Перебираем все позиции корзины.
+    // Перебираем все товары в корзине.
     for (const CartItem& item : cart)
     {
+        // Считаем стоимость конкретного товара.
         double itemTotal = item.price * item.quantity;
 
-        std::cout << item.name
-            << " | Quantity: " << item.quantity
-            << " | Price: $" << std::fixed
-            << std::setprecision(2) << item.price
-            << " | Total: $" << itemTotal << '\n';
+        // Выводим информацию о товаре.
+        cout << item.name
+             << " | Quantity: " << item.quantity
+             << " | Price: $" << fixed << setprecision(2)
+             << item.price
+             << " | Total: $" << itemTotal << endl;
 
+        // Добавляем стоимость товара к общей сумме.
         total += itemTotal;
     }
 
-    std::cout << "Subtotal: $" << std::fixed
-        << std::setprecision(2) << total << '\n';
-
-    std::cout << "===============================\n";
+    // Показываем общую стоимость корзины.
+    cout << "Total: $" << total << endl;
 }
 
-// ------------------------------------------------------------
-// Функция формирования итогового чека.
-//
-// Пользователь выбирает тип скидки:
-// 0 - без скидки;
-// 1 - VIP-карта, скидка 10%;
-// 2 - студенческая карта, скидка 5%.
-//
-// После выбора рассчитывается скидка и итоговая стоимость.
-// ------------------------------------------------------------
-void checkout(const std::vector<CartItem>& cart)
+// Функция оформления покупки и расчёта скидки.
+void checkout(const vector<CartItem>& cart)
 {
-    // Нельзя оформить заказ с пустой корзиной.
+    // Нельзя оформить покупку с пустой корзиной.
     if (cart.empty())
     {
-        std::cout
-            << "Your cart is empty. Add products before checkout.\n";
+        cout << "Your cart is empty!" << endl;
         return;
     }
 
-    // Рассчитываем первоначальную стоимость заказа.
-    double subtotal = 0.0;
+    // Считаем первоначальную стоимость всех товаров.
+    double subtotal = 0;
 
     for (const CartItem& item : cart)
     {
         subtotal += item.price * item.quantity;
     }
 
-    // Проверяем возможность корректного расчёта суммы.
-    if (!std::isfinite(subtotal))
+    // Проверяем, что сумма заказа положительная.
+    if (subtotal <= 0)
     {
-        std::cout
-            << "Error: the order total is outside the valid range.\n";
+        cout << "Invalid order total!" << endl;
         return;
     }
 
+    int choice;
+
     // Выводим варианты скидок.
-    std::cout << "\n========== CHECKOUT ==========\n";
-    std::cout << "0. No discount\n";
-    std::cout << "1. VIP card - 10% discount\n";
-    std::cout << "2. Student card - 5% discount\n";
+    cout << "\n========== CHECKOUT ==========\n";
+    cout << "0. No discount\n";
+    cout << "1. VIP card - 10%\n";
+    cout << "2. Student card - 5%\n";
 
-    int discountChoice;
-
-    // Запрашиваем корректный код скидки.
-    while (true)
+    // Проверяем правильность выбора скидки.
+    do
     {
-        discountChoice = readInt("Choose your discount: ");
+        cout << "Choose discount: ";
+        choice = readInt();
 
-        if (discountChoice >= 0 && discountChoice <= 2)
+        if (choice < 0 || choice > 2)
         {
-            break;
+            cout << "Invalid choice! Try again.\n";
         }
 
-        std::cout
-            << "Invalid choice. Enter 0, 1, or 2.\n";
-    }
+    } while (choice < 0 || choice > 2);
 
-    double discountRate = 0.0;
+    // Переменная для хранения размера скидки.
+    double discount = 0;
 
-    // Выбираем размер скидки с помощью switch.
-    switch (discountChoice)
+    // Определяем размер скидки с помощью switch.
+    switch (choice)
     {
     case 0:
-        // Покупатель не использует скидочную карту.
-        discountRate = 0.0;
+        discount = 0;
         break;
 
     case 1:
-        // VIP-карта предоставляет скидку 10%.
-        discountRate = 0.10;
+        discount = 10;
         break;
 
     case 2:
-        // Студенческая карта предоставляет скидку 5%.
-        discountRate = 0.05;
+        discount = 5;
         break;
-
-    default:
-        // Защитная ветвь на случай изменения программы.
-        std::cout << "Invalid discount selection.\n";
-        return;
     }
 
-    // Рассчитываем скидку и сумму к оплате.
-    double discountAmount = subtotal * discountRate;
+    // Рассчитываем сумму скидки.
+    double discountAmount = subtotal * discount / 100;
+
+    // Вычитаем скидку из первоначальной стоимости.
     double finalTotal = subtotal - discountAmount;
 
-    // Печатаем чек.
-    std::cout << "\n========== RECEIPT ==========\n";
+    // Формируем итоговый чек.
+    cout << "\n========== RECEIPT ==========\n";
 
     for (const CartItem& item : cart)
     {
-        std::cout << std::left << std::setw(18) << item.name
-            << " x" << item.quantity
-            << " = $" << std::fixed
-            << std::setprecision(2)
-            << item.price * item.quantity << '\n';
+        cout << item.name << " x " << item.quantity
+             << " = $" << item.price * item.quantity << endl;
     }
 
-    std::cout << "------------------------------\n";
-    std::cout << "Subtotal: $" << subtotal << '\n';
-
-    std::cout << "Discount: "
-        << discountRate * 100.0 << "%\n";
-
-    std::cout << "Discount amount: $" << discountAmount << '\n';
-    std::cout << "Final total: $" << finalTotal << '\n';
-
-    std::cout << "==============================\n";
-    std::cout << "Thank you for your purchase!\n";
+    // Выводим итоговую информацию о покупке.
+    cout << "-----------------------------\n";
+    cout << "Subtotal: $" << subtotal << endl;
+    cout << "Discount: " << discount << "%\n";
+    cout << "Discount amount: $" << discountAmount << endl;
+    cout << "Final total: $" << finalTotal << endl;
+    cout << "=============================\n";
+    cout << "Thank you for your purchase!\n";
 }
 
-// ------------------------------------------------------------
 // Главная функция программы.
-//
-// Организует главное меню магазина и позволяет:
-// 1. Выбирать категории товаров.
-// 2. Просматривать корзину.
-// 3. Завершать покупку.
-// 0. Выходить из программы.
-//
-// Цикл обеспечивает возможность возвращаться в главное меню
-// после выбора товара или просмотра корзины.
-// ------------------------------------------------------------
+// Здесь находится главное меню магазина.
 int main()
 {
-    // Вектор хранит все выбранные товары.
-    std::vector<CartItem> cart;
+    // Создаём пустую корзину для товаров.
+    vector<CartItem> cart;
 
-    // Переменная хранит выбор пользователя в главном меню.
-    int menuChoice;
+    int choice;
 
-    std::cout << "================================\n";
-    std::cout << "       WELCOME TO THE STORE\n";
-    std::cout << "================================\n";
-
-    // Повторяем главное меню, пока пользователь не выберет выход.
-    while (true)
+    // Главное меню повторяется, пока пользователь не выберет 0.
+    do
     {
-        std::cout << "\n========== MAIN MENU ==========\n";
-        std::cout << "1. Salads\n";
-        std::cout << "2. Hot meals\n";
-        std::cout << "3. Drinks\n";
-        std::cout << "4. Desserts\n";
-        std::cout << "5. View cart\n";
-        std::cout << "6. Checkout\n";
-        std::cout << "0. Exit\n";
+        cout << "\n========== MAIN MENU ==========\n";
+        cout << "1. Salads\n";
+        cout << "2. Hot meals\n";
+        cout << "3. Drinks\n";
+        cout << "4. Desserts\n";
+        cout << "5. View cart\n";
+        cout << "6. Checkout\n";
+        cout << "0. Exit\n";
 
-        menuChoice = readInt("Choose an option: ");
+        cout << "Choose an option: ";
+        choice = readInt();
 
-        // Главный switch управляет переходами между разделами.
-        switch (menuChoice)
+        // Обрабатываем выбор пользователя.
+        switch (choice)
         {
         case 1:
-            // Переходим к подменю салатов.
-            selectProduct(1, cart);
-            break;
-
         case 2:
-            // Переходим к подменю горячих блюд.
-            selectProduct(2, cart);
-            break;
-
         case 3:
-            // Переходим к подменю напитков.
-            selectProduct(3, cart);
-            break;
-
         case 4:
-            // Переходим к подменю десертов.
-            selectProduct(4, cart);
+            // Передаём номер категории в функцию выбора товара.
+            selectProduct(choice, cart);
             break;
 
         case 5:
@@ -565,20 +380,21 @@ int main()
             break;
 
         case 6:
-            // Оформляем заказ и печатаем чек.
+            // Оформляем покупку и рассчитываем скидку.
             checkout(cart);
             break;
 
         case 0:
-            // Завершаем программу по запросу пользователя.
-            std::cout << "Thank you for visiting our store!\n";
-            return 0;
+            // Завершаем работу программы.
+            cout << "Thank you for visiting our store!\n";
+            break;
 
         default:
-            // Обрабатываем неверный пункт главного меню.
-            std::cout
-                << "Invalid menu option. Please try again.\n";
-            break;
+            // Обрабатываем неправильный выбор.
+            cout << "Invalid menu option!\n";
         }
-    }
+
+    } while (choice != 0);
+
+    return 0;
 }
